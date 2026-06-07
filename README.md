@@ -85,3 +85,194 @@ volumes:            # định nghĩa ổ đĩa ảo
   ten_volume:
     ...
 ```
+
+#### 2.1. Một số keyword chính trong docker-compose
+
+| Keyword	| Ý nghĩa |
+| --- | --- |
+| version	| Phiên bản cú pháp Docker Compose |
+| services	| Danh sách các container cần chạy trong hệ thống |
+| networks | Định nghĩa các mạng ảo dùng chung giữa các service |
+| volumes	| Định nghĩa các ổ đĩa ảo dùng chung giữa các service |
+
+#### 2.2. Các keyword mô tả service
+`image`
+
+Chỉ định image có sẵn (từ Docker Hub hoặc local) để chạy container.
+
+```
+services:
+  database:
+    image: mariadb:latest   # dùng image mariadb phiên bản mới nhất
+```
+
+`build`
+
+Thay vì dùng image có sẵn, tự build image từ Dockerfile.
+
+```
+services:
+  flask_api:
+    build:
+      context: ./flask_app    # thư mục chứa Dockerfile
+      dockerfile: Dockerfile  # tên file (mặc định là "Dockerfile")
+```
+
+`container_name`
+
+Đặt tên cụ thể cho container thay vì để Docker tự sinh tên ngẫu nhiên.
+
+```
+services:
+  web:
+    image: nginx
+    container_name: my_nginx
+```
+
+`ports`
+
+Map cổng theo cú pháp HOST:CONTAINER — cho phép truy cập từ bên ngoài máy host.
+
+```
+services:
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"   # truy cập http://localhost:3000 → grafana bên trong container
+```
+
+`environment`
+
+Truyền biến môi trường vào trong container
+
+```
+services:
+  mariadb:
+    image: mariadb:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: alert_db
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin123
+```
+
+`env_file`
+
+Đọc biến môi trường từ file .env bên ngoài — tránh lộ thông tin nhạy cảm trong compose file.
+
+```
+services:
+  mariadb:
+    env_file:
+      - .env
+```
+
+`volumes`
+
+Mount dữ liệu giữa host và container. Có 2 loại:
+
+- Named volume: Docker tự quản lý vị trí lưu trữ.
+- Bind mount: Mount trực tiếp thư mục/file từ máy host.
+
+```
+services:
+  mariadb:
+    volumes:
+      - mariadb_data:/var/lib/mysql        # named volume
+      - ./config/my.cnf:/etc/mysql/my.cnf  # bind mount (file cụ thể)
+```
+
+`networks`
+
+Chỉ định container tham gia vào mạng nào. Một container có thể thuộc nhiều mạng.
+
+```
+services:
+  flask_api:
+    networks:
+      - frontend_net
+      - backend_net
+```
+
+`depend_on`
+
+Xác định thứ tự khởi động — service này chỉ start sau khi các service phụ thuộc đã sẵn sàng.
+
+```
+services:
+  flask_api:
+    depends_on:
+      - mariadb    # mariadb phải khởi động trước flask_api
+      - influxdb
+```
+
+`restart`
+
+Chính sách tự khởi động lại container khi bị crash hoặc khi Docker daemon restart
+
+```
+services:
+  nodered:
+    restart: always          # luôn luôn restart
+    # restart: unless-stopped  # restart trừ khi bị dừng thủ công bằng docker stop
+    # restart: on-failure      # chỉ restart khi thoát với mã lỗi khác 0
+    # restart: no              # không bao giờ tự restart
+```
+
+`command`
+
+Ghi đè lệnh mặc định (CMD) được định nghĩa trong image khi container khởi động.
+
+```
+services:
+  flask_api:
+    command: python app.py --port 5000
+```
+
+`healthcheck`
+
+Định nghĩa câu lệnh kiểm tra định kỳ xem service có hoạt động đúng không.
+
+```
+services:
+  mariadb:
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s   # kiểm tra mỗi 10 giây
+      timeout: 5s     # timeout sau 5 giây
+      retries: 5      # thử lại 5 lần trước khi đánh dấu "unhealthy"
+```
+
+`expose`
+
+Mở cổng cho các container khác trong cùng network — không mở ra ngoài máy host.
+
+```
+services:
+  flask_api:
+    expose:
+      - "5000"   # container khác trong cùng network có thể gọi :5000
+                 # nhưng máy host bên ngoài không truy cập được
+```
+
+`entrypoint`
+
+Ghi đè lệnh ENTRYPOINT mặc định của image.
+
+```
+services:
+  flask_api:
+    entrypoint: ["python", "-m", "flask", "run"]
+```
+
+`working_dir`
+
+Đặt thư mục làm việc mặc định bên trong container.
+
+```
+services:
+  flask_api:
+    working_dir: /app
+```
+
+#### 2.3. Các keyword mô tả network
