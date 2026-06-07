@@ -448,8 +448,6 @@ weather-monitor/
 │   ├── default.conf
 │   └── html/
 │       ├── index.html
-│       ├── script.js
-│       └── style.css
 ├── flask_api/
 │   ├── Dockerfile
 │   ├── requirements.txt
@@ -574,4 +572,412 @@ services:
     depends_on:
       - weather_flask
     restart: always
+```
+#### 2.2. Xây dựng Flask API
+##### Bước 1: Khai báo các thư viện cần thiết trong `flask_api/requirements.txt`
+Khai báo các thư viện Python cần thiết để kết nối MariaDB và chạy API.
+
+```
+Flask==3.0.3
+mysql-connector-python==8.3.0
+Flask-Cors==4.0.1
+```
+##### Bước 2: Edit file `app.py`
+Đoạn code này sẽ tạo một API endpoint `/api/weather` để kết nối vào MariaDB (sử dụng tên service weather_mariadb làm host) và lấy ra bản ghi thời tiết mới nhất.
+```
+from flask import Flask, jsonify
+from flask_cors import CORS
+import mysql-connector-python as mysql
+import os
+import time
+
+app = Flask(__name__)
+CORS(app) # Cho phép gọi API từ bên ngoài nếu cần
+
+def get_db_connection():
+    # Thử kết nối lại nhiều lần đề phòng MariaDB khởi động chậm hơn Flask
+    for i in range(5):
+        try:
+            conn = mysql.connect(
+                host='weather_mariadb', # Tên service trong docker-compose
+                user='weather_user',
+                password='weather_password',
+                database='weather_db'
+            )
+            return conn
+        except mysql.Error:
+            time.sleep(2)
+    return None
+
+# Tạo bảng tự động nếu chưa có (để hệ thống không bị lỗi khi mới start)
+def init_db():
+    conn = get_db_connection()
+    if conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS weather_live (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                temperature FLOAT,
+                humidity FLOAT,
+                rainfall FLOAT,
+                wind_speed FLOAT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        """)
+        # Chèn thử 1 dòng dữ liệu mẫu ban đầu nếu bảng trống
+        cursor.execute("SELECT COUNT(*) FROM weather_live")
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("""
+                INSERT INTO weather_live (temperature, humidity, rainfall, wind_speed) 
+                VALUES (27.5, 80.0, 0.0, 3.5)
+            """)
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+@app.route('/api/weather', methods=['GET'])
+def get_weather():
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Không thể kết nối cơ sở dữ liệu"}), 500
+    
+    cursor = conn.cursor(dictionary=True)
+    # Lấy bản ghi mới nhất dựa vào timestamp hoặc ID
+    cursor.execute("SELECT temperature, humidity, rainfall, wind_speed, timestamp FROM weather_live ORDER BY id DESC LIMIT 1")
+    result = cursor.fetchone()
+    
+    cursor.close()
+    conn.close()
+    
+    if result:
+        # Định dạng lại thời gian thành chuỗi để JSON hóa
+        result['timestamp'] = result['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+        return jsonify(result)
+    return jsonify({"message": "Chưa có dữ liệu"}), 404
+
+if __name__ == '__main__':
+    init_db()
+    # Chạy ở port 5000 bên trong container
+    app.run(host='0.0.0.0', port=5000)
+```
+
+##### Bước 3: Edit file `Dockerfile`
+File này dùng để Docker đóng gói ứng dụng Flask thành một Image riêng.
+
+```
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+CMD ["python", "app.py"]
+```
+
+---
+
+##### Bước 4: Cấu hình Nginx làm Web Server & Reverse Proxy
+- File: `nginx/default.conf`
+- File này cấu hình Nginx lắng nghe ở cổng 80 (nội bộ container). Nếu user vào trang chủ / thì trả về file HTML, nếu vào tuyến đường /api/ thì Nginx sẽ "bắn" request đó sang cho container Flask xử lý.
+
+```
+server {
+    listen 80;
+    server_name localhost;
+
+    # 1. Định tuyến cho Frontend (HTML/JS/CSS tĩnh)
+    location / {
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files $uri $uri/ =404;
+    }
+
+    # 2. Định tuyến Reverse Proxy cho Flask API
+    location /api/ {
+        proxy_pass http://weather_flask:5000; # Tên service Flask và port nội bộ của nó
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+##### Bước 5: Tạo file giao diện web
+Viết file index.html làm frontend cho hệ thống.
+
+```
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống Giám sát Thời tiết Hệ thống IoT</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- CSS STYLE TOÀN DIỆN --- */
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-main: #1a1f36;
+            --text-sub: #697386;
+            --primary: #0061ff;
+            --primary-light: #e0ecff;
+            --success: #00cc66;
+            --danger: #ff3333;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 30px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        header {
+            margin-bottom: 30px;
+            text-align: center;
+            width: 100%;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: -0.5px;
+        }
+
+        header p {
+            color: var(--text-sub);
+            margin-top: 5px;
+            font-size: 1rem;
+        }
+
+        /* Lưới hiển thị các thông số tức thời */
+        .live-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+            width: 100%;
+        }
+
+        /* Thẻ Card cho từng thông số */
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Hiệu ứng đường kẻ màu ở đỉnh card */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--primary);
+        }
+        .card.temp::before { background: #ff5e62; }
+        .card.humidity::before { background: #00c6ff; }
+        .card.rain::before { background: #0072ff; }
+        .card.wind::before { background: #56ab2f; }
+
+        .card-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-sub);
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .card-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            line-height: 1;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: baseline;
+        }
+
+        .card-value span.unit {
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: var(--text-sub);
+            margin-left: 4px;
+        }
+
+        /* Trạng thái cập nhật thời gian */
+        .status-bar {
+            background: var(--card-bg);
+            padding: 12px 24px;
+            border-radius: 30px;
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            margin-bottom: 30px;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--success);
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 1; box-shadow: 0 0 0 0 rgba(0, 204, 102, 0.7); }
+            70% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 6px rgba(0, 204, 102, 0); }
+            100% { transform: scale(0.9); opacity: 0; }
+        }
+
+        /* Khu vực nhúng đồ thị Grafana */
+        .chart-section {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            width: 100%;
+        }
+
+        .chart-section h2 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text-main);
+        }
+
+        .iframe-container {
+            position: relative;
+            width: 100%;
+            padding-top: 45%; /* Tỷ lệ màn hình 16:9 hoặc xấp xỉ */
+            overflow: hidden;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border: 1px solid #e3e8ee;
+        }
+
+        .iframe-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>WEATHER MONITORING DASHBOARD</h1>
+            <p>Hệ thống giám sát và phân tích dữ liệu thời tiết thời gian thực</p>
+        </header>
+
+        <center>
+            <div class="status-bar">
+                <div class="pulse-dot"></div>
+                Dữ liệu tức thời (MariaDB): Cập nhật tự động sau mỗi <span id="update-countdown" style="font-weight:bold; margin: 0 3px;">5</span> giây. Lúc: <span id="time-stamp" style="margin-left: 5px; font-weight: 600;">--:--:--</span>
+            </div>
+        </center>
+
+        <section class="live-grid">
+            <div class="card temp">
+                <div class="card-title">Nhiệt độ</div>
+                <div class="card-value"><span id="temp-val">--</span><span class="unit">°C</span></div>
+            </div>
+
+            <div class="card humidity">
+                <div class="card-title">Độ ẩm</div>
+                <div class="card-value"><span id="humid-val">--</span><span class="unit">%</span></div>
+            </div>
+
+            <div class="card rain">
+                <div class="card-title">Lượng mưa</div>
+                <div class="card-value"><span id="rain-val">--</span><span class="unit">mm</span></div>
+            </div>
+
+            <div class="card wind">
+                <div class="card-title">Tốc độ gió</div>
+                <div class="card-value"><span id="wind-val">--</span><span class="unit">m/s</span></div>
+            </div>
+        </section>
+
+        <section class="chart-section">
+            <h2>Phân tích Xu hướng Lịch sử (Grafana - InfluxDB)</h2>
+            <div class="iframe-container">
+                <iframe src="http://localhost:3002/d-solo/your-dashboard-id/weather-history?orgId=1&refresh=5s&panelId=1" width="100%" height="100%" frameborder="0"></iframe>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        async function fetchLiveWeather() {
+            try {
+                // Gọi API thông qua Reverse Proxy của Nginx
+                const response = await fetch('/api/weather');
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Cập nhật giá trị vào các thẻ HTML tương ứng
+                    document.getElementById('temp-val').innerText = data.temperature !== undefined ? data.temperature : '--';
+                    document.getElementById('humid-val').innerText = data.humidity !== undefined ? data.humidity : '--';
+                    document.getElementById('rain-val').innerText = data.rainfall !== undefined ? data.rainfall : '--';
+                    document.getElementById('wind-val').innerText = data.wind_speed !== undefined ? data.wind_speed : '--';
+                    
+                    // Cập nhật nhãn thời gian hiển thị
+                    document.getElementById('time-stamp').innerText = data.timestamp || '--';
+                } else {
+                    console.error("API trả về lỗi hoặc chưa có dữ liệu.");
+                }
+            } catch (error) {
+                console.error("Lỗi kết nối tới API endpoint:", error);
+            }
+        }
+
+        // Gọi ngay lần đầu tiên khi tải trang
+        fetchLiveWeather();
+
+        // Thiết lập vòng lặp tự động lấy dữ liệu sau mỗi 5 giây (5000ms)
+        setInterval(fetchLiveWeather, 5000);
+    </script>
+</body>
+</html>
 ```
