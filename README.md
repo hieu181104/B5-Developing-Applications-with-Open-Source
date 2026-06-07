@@ -592,7 +592,7 @@ Flask-Cors==4.0.1
 ```
 from flask import Flask, jsonify
 from flask_cors import CORS
-import mysql-connector-python as mysql
+import mysql.connector as mysql
 import os
 import time
 
@@ -989,3 +989,21 @@ Viết file index.html làm frontend cho hệ thống.
 </body>
 </html>
 ```
+
+---
+
+#### 2.5. Khởi động hệ thống
+Sau khi hoàn tất cấu hình, build và khởi động toàn bộ hệ thống:
+```
+docker compose up -d --build
+```
+
+<img width="2342" height="1210" alt="image" src="https://github.com/user-attachments/assets/40160939-a7fa-4b1b-9bce-25d5b86c1e1b" />
+
+Kiểm tra trạng thái các container 
+```
+docker ps
+```
+<img width="2340" height="518" alt="image" src="https://github.com/user-attachments/assets/0bd87b51-5b8d-46ca-a7c0-158b8c229b6c" />
+
+
