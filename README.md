@@ -1102,7 +1102,7 @@ Bấm nút `Deploy` màu đỏ trên góc phải màn hình để lưu và chạ
 
 | Trường | Thông tin | 
 | --- | --- |
-| URL|  http://weather_influxdb:8086 (Gọi bằng tên service nội bộ) |
+| URL|  http://weather_influxdb:8086 |
 | Database |  weather_history |
 | User | admin |
 | Password | adminpassword |
@@ -1151,5 +1151,33 @@ Bấm nút Save -> Đặt tên cho Dashboard (ví dụ: Weather Monitor).
 ---
 
 ### 4. Đóng gói và khôi phục hệ thống
+#### Bước 1: Xuất tất cả các Container ra file nén:
+```
+# Đứng tại thư mục người dùng, tiến hành nén thư mục dự án lại
+tar -czvf weather_monitor_backup.tar.gz weather-monitor/
+```
+
+#### Bước 2: Xóa mọi container đang chạy để nghiệm thu
+```
+cd weather-monitor
+docker compose down
+```
+
+> Lúc này vào trình duyệt cổng 8085 sẽ sập hoàn toàn, chứng minh hệ thống đã được dọn dẹp sạch
+
+#### Bước 3: Khôi phục lại từ file nén
+
+```
+# Giải nén lại thư mục
+tar -xzvf weather_monitor_backup.tar.gz
+
+# Truy cập và khởi động lại toàn bộ hệ thống như cũ
+cd weather-monitor
+docker compose up -d
+```
+
+Hệ thống sẽ tự động khôi phục lại trạng thái đỉnh cao ban đầu, giữ nguyên lịch sử dữ liệu cũ trong DB mà không cần cấu hình lại từ đầu!
+
+#### Bước 4: Kết quả khôi phục
 
 
