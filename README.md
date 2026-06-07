@@ -477,5 +477,101 @@ weather-monitor/
 ---
 
 ### 2. Cấu hình 
-#### 2.1. Cáu hình file `docker-compose.yml`
+#### 2.1. Cấu hình file `docker-compose.yml`
+```
+# version: '3.8'
 
+networks:
+  weather_network:
+    driver: bridge
+
+services:
+  # 1. Database Lưu Tức Thời
+  weather_mariadb:
+    image: mariadb:10.11
+    container_name: weather_mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: weather_db
+      MYSQL_USER: weather_user
+      MYSQL_PASSWORD: weather_password
+    ports:
+      - "3309:3306" 
+    volumes:
+      - ./mariadb_data:/var/lib/mysql
+    networks:
+      - weather_network
+    restart: always
+
+  # 2. Database Lưu Lịch Sử
+  weather_influxdb:
+    image: influxdb:1.8
+    container_name: weather_influxdb
+    environment:
+      - INFLUXDB_DB=weather_history
+      - INFLUXDB_ADMIN_USER=admin
+      - INFLUXDB_ADMIN_PASSWORD=adminpassword
+    ports:
+      - "8089:8086"
+    volumes:
+      - ./influxdb_data:/var/lib/influxdb
+    networks:
+      - weather_network
+    restart: always
+
+  # 3. Node-RED (Trung tâm xử lý ETL)
+  weather_nodered:
+    image: nodered/node-red:latest
+    container_name: weather_nodered
+    ports:
+      - "1882:1880"
+    volumes:
+      - ./nodered_data:/data
+    networks:
+      - weather_network
+    restart: always
+
+  # 4. Grafana (Vẽ biểu đồ và cho phép nhúng Iframe)
+  weather_grafana:
+    image: grafana/grafana:latest
+    container_name: weather_grafana
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ALLOW_EMBEDDING=true # Cho phép nhúng vào Iframe HTML
+      - GF_AUTH_ANONYMOUS_ENABLED=true   # Cho phép xem biểu đồ không cần login
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - ./grafana_data:/var/lib/grafana
+    networks:
+      - weather_network
+    restart: always
+    depends_on:
+      - weather_influxdb
+
+  # 5. Flask API (Sẽ build từ code ở Giai đoạn sau)
+  weather_flask:
+    build: ./flask_api
+    container_name: weather_flask
+    # Không cần export ports ra ngoài vì Nginx sẽ gọi nó từ bên trong mạng Docker
+    networks:
+      - weather_network
+    depends_on:
+      - weather_mariadb
+    restart: always
+
+  # 6. Nginx Web Server & Reverse Proxy
+  web_nginx:
+    image: nginx:latest
+    container_name: web_nginx_weather
+    ports:
+      - "8085:80" 
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/html:/usr/share/nginx/html
+    networks:
+      - weather_network
+    depends_on:
+      - weather_flask
+    restart: always
+```
