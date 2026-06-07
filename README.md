@@ -1079,3 +1079,33 @@ Bấm nút `Deploy` màu đỏ trên góc phải màn hình để lưu và chạ
 ###### Truy cập vào giao diện web để xem kết quả `http://192.168.164.129`
 <img width="3071" height="1735" alt="image" src="https://github.com/user-attachments/assets/4021a7ec-0b05-462a-92d0-0da720d9f9d9" />
 
+> Chú ý: Vì nhiệt độ đang ở mức bình thường, nên để có cảnh báo đẩy về telegram, em sẽ sửa lại ngưỡng bất thường high từ 40 độ còn 30 độ.
+
+###### Kết quả cảnh báo khi nhiệt độ vượt ngưỡng 30 độ:
+<img width="3071" height="1729" alt="image" src="https://github.com/user-attachments/assets/9c4872db-0d91-4744-817b-92f4aabaada2" />
+
+> Sau khi test cảnh báo thành công, em đưa về mức nhiệt cảnh báo cao là 38.
+
+#### 2.7. Cấu hình Grafana kết nối InfluxDB
+##### Bước 1: Đăng nhập grafana
+- Truy cập `http://192.168.164.129:3002` để vào Grafana
+- Đăng nhập và đổi mật khẩu (nếu cần)
+
+<img width="3071" height="1729" alt="image" src="https://github.com/user-attachments/assets/06afeaa8-4a0a-465c-968a-6c63d0fe966a" />
+
+##### Bước 2: Thêm datasource 
+- Tại thanh menu bên trái, chọn Connections ->  Data sources -> Add data source.
+
+<img width="3057" height="1711" alt="image" src="https://github.com/user-attachments/assets/0080cda5-be09-4e69-b0fa-cbd1badd8598" />
+
+- Chọn InfluxDB.
+- Cấu hình các thông số chính xác như sau:
+
+| Trường | Thông tin | 
+| --- | --- |
+| URL|  http://weather_influxdb:8086 (Gọi bằng tên service nội bộ) |
+| Database |  weather_history |
+| User | admin |
+| Password | adminpassword |
+
+- Kéo xuống dưới cùng ấn Save & test. Nếu hiện thông báo màu xanh "Data source is working" là thành công!
