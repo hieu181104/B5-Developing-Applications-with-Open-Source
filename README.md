@@ -443,7 +443,6 @@ Các thành phần cốt lõi trong hệ thống:
 ```
 weather-monitor/
 ├── docker-compose.yml
-├── README.md
 ├── nginx/
 │   ├── default.conf
 │   └── html/
