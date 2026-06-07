@@ -1006,4 +1006,76 @@ docker ps
 ```
 <img width="2340" height="518" alt="image" src="https://github.com/user-attachments/assets/0bd87b51-5b8d-46ca-a7c0-158b8c229b6c" />
 
+---
+
+#### 2.6. Cấu hình NODERED để tự động hóa luồng dữ liệu
+Trong giai đoạn này, Node-RED sẽ đóng vai trò đầu não thực hiện 4 nhiệm vụ liên tục:
+- Cào dữ liệu thời tiết thực tế từ API công khai. (mỗi 10-30 giây)
+- Lưu trạng thái mới nhất vào MariaDB.
+- Lưu lịch sử vào InfluxDB (để Grafana vẽ biểu đồ).
+- Phân tích dị thường và kích hoạt Telegram Bot gửi tin nhắn cảnh báo vào Group.
+
+##### Bước 1: Chuẩn bị thư viện (nodes) trong Node-RED
+Truy cập Node-RED qua địa chỉ `http://<IP_máy_chủ_Ubuntu>:1882`
+```
+http://192.168.164.129:1882
+```
+
+Click vào Menu (3 dấu gạch ngang góc trên bên phải) -> Chọn Manage palette.Chuyển sang thẻ Install, tìm kiếm và nhấn Install lần lượt 3 thư viện sau:
+```
+node-red-node-mysql (Kết nối MariaDB)
+
+node-red-contrib-influxdb (Kết nối InfluxDB)
+
+node-red-contrib-telegrambot (Kết nối Telegram)
+```
+<img width="3071" height="1744" alt="image" src="https://github.com/user-attachments/assets/1784410b-2783-4fa0-b6df-b1009d0d5f2d" />
+
+##### Bước 2: Chuẩn bị thông tin Telegram Bot
+Trước khi viết Flow, cần chuẩn bị thông tin từ Telegram:
+
+Bot Token: Chat với @BotFather trên Telegram, gõ lệnh /newbot, đặt tên cho bot. Sau khi tạo xong, @BotFather sẽ cấp một chuỗi Token. Copy token này để bước sau dán vào Nodered.
+
+<img width="3070" height="1744" alt="image" src="https://github.com/user-attachments/assets/f5039601-2f7e-4c50-a797-2c70351dfacd" />
+
+Tạo nhóm chat có bot để cảnh báo:
+- Tạo một Group mới trên Telegram, thêm các thành viên vào (bao gồm cả tài khoản ID 1875746636 theo yêu cầu bài tập).
+- Thêm cả con Bot vừa tạo ở trên vào nhóm này với quyền Admin (để nó có quyền gửi tin nhắn).
+
+<img width="3070" height="1743" alt="image" src="https://github.com/user-attachments/assets/eb5db58b-2a79-4df1-9909-2df1d76e7975" />
+
+##### Bước 3: Thiết kế luồng dữ liệu
+kéo các node và điền các thông tin:
+
+###### Node inject để thiết lập mỗi 10s lấy dữ liệu một lần
+<img width="3071" height="1594" alt="image" src="https://github.com/user-attachments/assets/965f7bb7-9e7c-485a-8cb4-d40c08db0504" />
+
+###### Node http request để cào dữ liệu thực 
+<img width="3066" height="1594" alt="image" src="https://github.com/user-attachments/assets/e4690025-871a-4127-a28d-4eee0269a496" />
+
+###### Node function chuẩn hóa và tách luồng dữ liệu
+<img width="3070" height="1594" alt="image" src="https://github.com/user-attachments/assets/0c6d21ae-4b99-46d4-af18-4bbb44a7dec4" />
+
+###### Node mysql
+<img width="3065" height="1587" alt="image" src="https://github.com/user-attachments/assets/6a20ec8f-9e5c-4781-addd-47ca217f7a2e" />
+
+###### Node influxdb out
+<img width="3067" height="1591" alt="image" src="https://github.com/user-attachments/assets/cd2d523f-3785-4df6-8e6f-8772c15ac511" />
+
+###### Node switch kiểm tra ngưỡng nhiệt độ
+<img width="3071" height="1596" alt="image" src="https://github.com/user-attachments/assets/97dd6649-3add-49f3-af16-2c8d402794ce" />
+
+###### Function node tạo cảnh báo low, high
+<img width="3063" height="1606" alt="image" src="https://github.com/user-attachments/assets/d5dcc7d3-9de0-4fc6-812e-e81ce9034b8f" />
+
+###### Node sender để bắn cảnh báo tới telegram 
+<img width="3069" height="1593" alt="Screenshot 2026-06-07 174122" src="https://github.com/user-attachments/assets/2248d881-283a-4ed2-8eea-a28d20826914" />
+
+##### Bước 4: Deploy và kiểm tra
+Bấm nút `Deploy` màu đỏ trên góc phải màn hình để lưu và chạy.
+
+<img width="3066" height="1601" alt="image" src="https://github.com/user-attachments/assets/e43f079c-0541-4435-9b5d-d2f8e2e8c182" />
+
+###### Truy cập vào giao diện web để xem kết quả `http://192.168.164.129`
+<img width="3071" height="1735" alt="image" src="https://github.com/user-attachments/assets/4021a7ec-0b05-462a-92d0-0da720d9f9d9" />
 
