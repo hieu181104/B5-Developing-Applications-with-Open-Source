@@ -573,6 +573,9 @@ services:
       - weather_flask
     restart: always
 ```
+
+---
+
 #### 2.2. Xây dựng Flask API
 ##### Bước 1: Khai báo các thư viện cần thiết trong `flask_api/requirements.txt`
 Khai báo các thư viện Python cần thiết để kết nối MariaDB và chạy API.
@@ -582,6 +585,8 @@ Flask==3.0.3
 mysql-connector-python==8.3.0
 Flask-Cors==4.0.1
 ```
+---
+
 ##### Bước 2: Edit file `app.py`
 Đoạn code này sẽ tạo một API endpoint `/api/weather` để kết nối vào MariaDB (sử dụng tên service weather_mariadb làm host) và lấy ra bản ghi thời tiết mới nhất.
 ```
@@ -661,6 +666,8 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
 ```
 
+---
+
 ##### Bước 3: Edit file `Dockerfile`
 File này dùng để Docker đóng gói ứng dụng Flask thành một Image riêng.
 
@@ -679,7 +686,7 @@ CMD ["python", "app.py"]
 
 ---
 
-##### Bước 4: Cấu hình Nginx làm Web Server & Reverse Proxy
+#### 2.3. Cấu hình Nginx làm Web Server & Reverse Proxy
 - File: `nginx/default.conf`
 - File này cấu hình Nginx lắng nghe ở cổng 80 (nội bộ container). Nếu user vào trang chủ / thì trả về file HTML, nếu vào tuyến đường /api/ thì Nginx sẽ "bắn" request đó sang cho container Flask xử lý.
 
@@ -705,8 +712,9 @@ server {
     }
 }
 ```
+---
 
-##### Bước 5: Tạo file giao diện web
+#### 2.4. Tạo file giao diện web
 Viết file index.html làm frontend cho hệ thống.
 
 ```
