@@ -1154,7 +1154,7 @@ Bấm nút Save -> Đặt tên cho Dashboard (ví dụ: Weather Monitor).
 #### Bước 1: Xuất tất cả các Container ra file nén:
 ```
 # Đứng tại thư mục người dùng, tiến hành nén thư mục dự án lại
-tar -czvf weather_monitor_backup.tar.gz weather-monitor/
+sudo tar -czvf weather_monitor_backup.tar.gz weather-monitor/
 ```
 
 #### Bước 2: Xóa mọi container đang chạy để nghiệm thu
@@ -1162,8 +1162,11 @@ tar -czvf weather_monitor_backup.tar.gz weather-monitor/
 cd weather-monitor
 docker compose down
 ```
+<img width="2331" height="1205" alt="image" src="https://github.com/user-attachments/assets/e92353cc-909c-4516-b6ad-9f04564e000e" />
 
 > Lúc này vào trình duyệt cổng 8085 sẽ sập hoàn toàn, chứng minh hệ thống đã được dọn dẹp sạch
+
+<img width="3071" height="1743" alt="image" src="https://github.com/user-attachments/assets/46c59e1b-c3d7-4518-9f67-811d9926ff87" />
 
 #### Bước 3: Khôi phục lại từ file nén
 
@@ -1180,4 +1183,17 @@ Hệ thống sẽ tự động khôi phục lại trạng thái đỉnh cao ban 
 
 #### Bước 4: Kết quả khôi phục
 
+<img width="3071" height="1734" alt="image" src="https://github.com/user-attachments/assets/d39be313-8edb-4f55-ad19-428593d0920a" />
 
+---
+
+## PHẦN 3: KẾT LUẬN
+Hệ thống đã đạt được các kết quả cốt lõi sau:
+
+Kiến trúc container hóa tối ưu: Thao tác đóng gói toàn bộ các dịch vụ (Nginx, Flask API, MariaDB, InfluxDB, Node-RED, Grafana) bằng Docker Compose giúp hệ thống vận hành cô lập, ổn định, giải quyết triệt để bài toán xung đột tài nguyên cổng và dễ dàng di trú, khôi phục bằng các tệp nén sao lưu.
+
+Trực quan hóa và Tự động hóa luồng ETL: Luồng xử lý dữ liệu của Node-RED hoạt động mượt mà, tự động phân tách dữ liệu để phục vụ lưu trữ tức thời (MariaDB) lẫn phân tích xu hướng lịch sử (InfluxDB). Giao diện Web Dashboard được thiết kế hiện đại, đồng bộ hóa dữ liệu thời gian thực và tích hợp thành công biểu đồ động từ Grafana.
+
+Hệ thống cảnh báo thông minh: Tích hợp thành công cơ chế giám sát ngưỡng an toàn của các thông số thời tiết, tự động kích hoạt và gửi tin nhắn cảnh báo tức thời tới nhóm Telegram của các thành viên quản trị, đáp ứng trọn vẹn bài toán giám sát chủ động trong thực tế.
+
+---
