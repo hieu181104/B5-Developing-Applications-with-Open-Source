@@ -46,6 +46,7 @@ và các thành phần cần thiết để tạo thành ứng dụng:
  xoá mọi container đang chạy
  load lại các container  từ file nén để khôi phục các container đã xoá
 ```
+
 ---
 
 # BÀI LÀM
@@ -65,6 +66,8 @@ Một số khái niệm chính:
 | volume | Cơ chế lưu trữ dữ liệu bền vững bên ngoài container, không bị mất khi container bị xoá |
 | network | Mạng ảo để các container giao tiếp với nhau một cách an toàn và có kiểm soát. |
 | docker compose | Công cụ định nghĩa và chạy nhiều container cùng lúc qua file docker-compose.yml. |
+
+---
 
 ### 2. Các keyword trong file `docker-compose.yml`
 File docker-compose.yml là file cấu hình YAML dùng để mô tả toàn bộ hệ thống multi-container. 
@@ -86,6 +89,8 @@ volumes:            # định nghĩa ổ đĩa ảo
     ...
 ```
 
+---
+
 #### 2.1. Một số keyword chính trong docker-compose
 
 | Keyword	| Ý nghĩa |
@@ -94,6 +99,8 @@ volumes:            # định nghĩa ổ đĩa ảo
 | services	| Danh sách các container cần chạy trong hệ thống |
 | networks | Định nghĩa các mạng ảo dùng chung giữa các service |
 | volumes	| Định nghĩa các ổ đĩa ảo dùng chung giữa các service |
+
+---
 
 #### 2.2. Các keyword mô tả service
 `image`
@@ -275,4 +282,145 @@ services:
     working_dir: /app
 ```
 
+---
+
 #### 2.3. Các keyword mô tả network
+
+| Driver	| Ý nghĩa |
+| --- | --- |
+| bridge	| Mạng ảo riêng — các container trong cùng bridge giao tiếp được với nhau qua tên service |
+| host	| Container dùng thẳng network interface của máy host (không cô lập network) |
+| none	| Container không có kết nối mạng |
+
+---
+
+#### 2.4. Các keyword mô tả volumes
+
+```
+volumes:
+  mariadb_data:       # Docker tự quản lý vị trí lưu trữ
+    driver: local
+
+  influxdb_data:
+    driver: local
+
+  grafana_data:
+    driver: local
+```
+Named volume được lưu tại /var/lib/docker/volumes/ trên máy host. Dữ liệu tồn tại độc lập với vòng đời container
+
+---
+
+### 3. Ưu điểm khi triển khai ứng dụng bằng Docker
+
+| STT |	Ưu điểm	| Giải thích |
+| --- | --- | --- |
+| 1 |	Nhất quán môi trường	| Dev, test, staging, production chạy giống hệt nhau. Xoá bỏ vấn đề "chạy được trên máy tôi".|
+| 2	| Cô lập (Isolation)	| Mỗi service chạy trong container riêng, không ảnh hưởng lẫn nhau. Lỗi ở một service không kéo đổ cả hệ thống.|
+| 3 |	Triển khai nhanh chóng	| Chỉ cần một lệnh docker compose up -d để khởi động toàn bộ hệ thống nhiều service.|
+| 4	| Dễ dàng scale	| Tăng số lượng instance của một service nhanh chóng: docker compose scale web=3 | 
+| 5	| Dễ rollback	| Quay về phiên bản cũ đơn giản bằng cách đổi tag image và restart.|
+| 6	| Tiết kiệm tài nguyên	| Container nhẹ hơn nhiều so với Virtual Machine vì dùng chung kernel với máy host, không cần boot OS riêng. |
+| 7 |	Quản lý dependencies	| Mỗi container tự mang dependencies riêng — không bao giờ xảy ra xung đột phiên bản giữa các service. |
+| 8	| Dễ backup và restore	| Export/import image hoặc volume chỉ với vài lệnh đơn giản. |
+| 9	| CI/CD thân thiện	| Tích hợp dễ dàng vào các pipeline tự động hoá (GitHub Actions, GitLab CI,...).|
+| 10	| Tái sử dụng |	Image được build một lần, có thể chạy ở bất kỳ đâu có Docker mà không cần cấu hình lại. |
+
+---
+
+### 4. Triển khai lên máy chủ thật không có internet
+#### Bước 1: Trên Laptop : Build và Pull tất cả các images
+```
+# Pull tất cả images được khai báo trong docker-compose.yml
+docker compose pull
+
+# Build các image tự viết (nếu có dùng keyword "build:" trong compose file)
+docker compose build
+```
+#### Bước 2: Trên Laptop: Export images ra file nén
+
+```
+# Export từng image riêng lẻ
+docker save mariadb:10.11      -o mariadb.tar
+docker save influxdb:2.7       -o influxdb.tar
+docker save grafana/grafana    -o grafana.tar
+docker save nodered/node-red   -o nodered.tar
+docker save nginx:alpine       -o nginx.tar
+docker save my_flask_api:latest -o flask_api.tar
+
+# Export tất cả vào 1 file nén duy nhất (khuyến nghị)
+docker save \
+  mariadb:10.11 \
+  influxdb:2.7 \
+  grafana/grafana \
+  nodered/node-red \
+  nginx:alpine \
+  my_flask_api:latest \
+  | gzip > all_images.tar.gz
+```
+#### Bước 3: Copy lên máy chủ
+
+```
+# Dùng SCP (truyền qua SSH)
+scp all_images.tar.gz user@192.168.1.100:/home/user/
+
+# Copy toàn bộ project (bao gồm docker-compose.yml, config, source code,...)
+scp -r ./my_project user@192.168.1.100:/home/user/
+```
+Nếu không có SSH, có thể copy qua USB, ổ cứng ngoài, hoặc mạng nội bộ LAN.
+
+#### Bước 4: Load images từ file
+
+```
+# Load images từ file nén
+docker load -i all_images.tar.gz
+# Hoặc:
+gunzip -c all_images.tar.gz | docker load
+
+# Kiểm tra images đã được load thành công
+docker images
+```
+
+#### Bước 5:  Trên Máy chủ: Vào thư mục project
+
+```
+cd /home/user/my_project
+ls -la
+# Kiểm tra có đủ file: docker-compose.yml, .env, nginx.conf, frontend/, flask_api/,...
+```
+#### Bước 6: Khởi động hệ thống
+
+```
+# Chạy toàn bộ hệ thống ở chế độ nền (detached mode)
+docker compose up -d
+
+# Kiểm tra trạng thái các container
+docker compose ps
+
+# Xem log nếu có lỗi
+docker compose logs -f
+```
+
+#### Một số lệnh quan trọng
+
+`docker compose up -d`	Khởi động tất cả service ở chế độ nền
+
+`docker compose down`	Dừng và xoá tất cả container (giữ volumes)
+
+`docker compose ps`	Xem trạng thái các container
+
+`docker compose logs -f`	Xem log realtime
+
+`docker save IMAGE -o file.tar`	Export image ra file
+
+`docker load -i file.tar`	Load image từ file
+
+`docker images`	Liệt kê tất cả images hiện có
+
+`docker compose pull`	Pull images từ registry
+
+`docker compose build`	Build images từ Dockerfile
+
+---
+
+## PHẦN 2: THỰC HÀNH
