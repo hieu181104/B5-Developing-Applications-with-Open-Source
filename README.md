@@ -1116,3 +1116,41 @@ Bấm nút `Deploy` màu đỏ trên góc phải màn hình để lưu và chạ
 
 <img width="3068" height="1584" alt="Screenshot 2026-06-07 181621" src="https://github.com/user-attachments/assets/15fa23cc-2785-4a61-bab6-60486972efeb" />
 
+##### Bước 3: Tạo biểu đồ
+Nhấn vào biểu tượng + ở phía trên bên phải, chọn New Dashboard -> add Panel -> Configure Visualization
+
+<img width="3069" height="1583" alt="Screenshot 2026-06-07 182153" src="https://github.com/user-attachments/assets/33180066-1949-49d9-9f5e-f04958d6ed91" />
+
+Cấu hình khung Queries:
+
+- FROM: bấm vào chữ select measurement -> Chọn tên bảng là weather_metrics.
+- SELECT: bấm vào chữ field(value) -> Sửa/chọn thành field(temperature).
+- Hãy bấm vào dấu X của hàm mean(), time($__interval) để xóa đi
+> Xóa mean() và group by time giúp dữ liệu thực hiển thị lên ngay lập tức mà không bị Grafana tự động gom nhóm trung bình theo thời gian (vốn dễ làm mất nét biểu đồ khi dữ liệu mới nạp).
+
+Tại danh sách bên phải mục Suggestions / All visualizations, bạn chọn kiểu Time series (đồ thị đường thẳng theo thời gian, mặc định ở đầu danh sách).
+
+Bấm nút Save -> Đặt tên cho Dashboard (ví dụ: Weather Monitor).
+
+<img width="3062" height="1587" alt="Screenshot 2026-06-07 182809" src="https://github.com/user-attachments/assets/08f06f26-cbd2-4daf-bd37-42892870d4aa" />
+
+##### Bước 4: Lấy link nhúng Iframe
+- Tại ô biểu đồ vừa vẽ, góc trên cùng bên phải của khung biểu đồ đó -> Xuất hiện dấu 3 chấm -> Chọn Share -> Chọn thẻ Embed.
+- Copy đoạn link trong thuộc tính src="..." (đổi localhost thành 192.168.164.129) rồi dán vào file index.html của Nginx.
+
+<img width="3054" height="1593" alt="Screenshot 2026-06-07 183159" src="https://github.com/user-attachments/assets/2f0e864b-b1a5-4c74-8b0f-f27b1f71babb" />
+<img width="3071" height="1604" alt="Screenshot 2026-06-07 183552" src="https://github.com/user-attachments/assets/29f95c6e-f133-4714-bfc3-39b1032e36a4" />
+
+<img width="2343" height="1208" alt="Screenshot 2026-06-07 184110" src="https://github.com/user-attachments/assets/7c86e63a-1801-491a-b1a1-f885beeacd59" />
+
+---
+
+### 3. Kết quả
+
+<img width="3061" height="1730" alt="Screenshot 2026-06-07 184336" src="https://github.com/user-attachments/assets/ef334a8e-16ff-47f1-9f7a-fb4d26a0555f" />
+
+---
+
+### 4. Đóng gói và khôi phục hệ thống
+
+
