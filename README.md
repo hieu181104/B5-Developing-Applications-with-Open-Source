@@ -1109,3 +1109,10 @@ Bấm nút `Deploy` màu đỏ trên góc phải màn hình để lưu và chạ
 | Password | adminpassword |
 
 - Kéo xuống dưới cùng ấn Save & test. Nếu hiện thông báo màu xanh "Data source is working" là thành công!
+
+<img width="3063" height="1587" alt="Screenshot 2026-06-07 181541" src="https://github.com/user-attachments/assets/b2f5cbc2-fd1c-4060-903b-b063bdc4f99c" />
+
+<img width="3053" height="1588" alt="Screenshot 2026-06-07 181608" src="https://github.com/user-attachments/assets/70569ad4-e0ab-4175-82ae-6f2e3564fd84" />
+
+<img width="3068" height="1584" alt="Screenshot 2026-06-07 181621" src="https://github.com/user-attachments/assets/15fa23cc-2785-4a61-bab6-60486972efeb" />
+
