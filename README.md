@@ -424,3 +424,58 @@ docker compose logs -f
 ---
 
 ## PHẦN 2: THỰC HÀNH
+### 1. Tổng quan hệ thống
+#### 1.1. Giới thiệu 
+Dự án xây dựng một hệ thống giám sát và cảnh báo tự động theo thời gian thực (App Monitor + Alert Data Realtime) chạy trên nền tảng Docker Container. Đối tượng giám sát thực tế được lựa chọn ở đây là dữ liệu thời tiết thu thập trực tiếp thông qua API.
+
+Các thành phần cốt lõi trong hệ thống:
+- Node-RED: Đóng vai trò là trung tâm điều phối dữ liệu (ETL Workflow). Thực hiện tác vụ lấy dữ liệu động liên tục, phân tích dị thường, ghi đồng thời vào 2 cơ sở dữ liệu và kích hoạt bot Telegram gửi cảnh báo khi có sự cố về giá.
+- MariaDB: Cơ sở dữ liệu quan hệ (RDBMS) dùng để lưu trữ trạng thái tức thời (giá trị mới nhất) nhằm phục vụ các truy vấn nhanh của ứng dụng Web Client.
+- InfluxDB (v1.8): Cơ sở dữ liệu chuỗi thời gian (Time-series Database) tối ưu cho việc lưu trữ dữ liệu lịch sử, phục vụ vẽ biểu đồ phân tích xu hướng theo thời gian.
+- Flask API (Python): Xây dựng dịch vụ API nội bộ kết nối trực tiếp với MariaDB, cung cấp endpoint endpoint trả về dữ liệu giá mới nhất dạng JSON cho giao diện người dùng.
+- Nginx: Web Server phân phối giao diện Frontend tĩnh và đồng thời đóng vai trò làm Reverse Proxy điều hướng luồng request từ trình duyệt client sang Flask API một cách an toàn thông qua cấu hình mạng nội bộ Docker.
+- Grafana: Nền tảng trực quan hóa dữ liệu mạnh mẽ, kết nối với InfluxDB để vẽ biểu đồ kỹ thuật và cho phép nhúng trực tiếp vào giao diện Frontend qua thẻ Iframe không cần đăng nhập.
+
+---
+
+#### 1.2. Cấu trúc thư mục dự án
+
+```
+weather-monitor/
+├── docker-compose.yml
+├── README.md
+├── nginx/
+│   ├── default.conf
+│   └── html/
+│       ├── index.html
+│       ├── script.js
+│       └── style.css
+├── flask_api/
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── app.py
+├── nodered_data/          
+├── influxdb_data/         
+└── mariadb_data/          
+```
+
+---
+
+#### 1.3. Danh sách service và cổng
+
+| Tên Service (Docker) | Cổng Nội bộ (Container) | Cổng Công khai (Host) | Mục đích sử dụng |
+| :--- | :--- | :--- | :--- |
+| `web_nginx` | `80` | **`8085`** | Giao diện Frontend (HTML/JS) & Reverse Proxy |
+| `weather_flask` | `5000` | Không mở (Ẩn) | Cung cấp API lấy dữ liệu tức thời từ MariaDB |
+| `weather_nodered` | `1880` | **`1882`** | Thu thập dữ liệu thời tiết, lưu DB, Gửi Telegram |
+| `weather_mariadb` | `3306` | **`3309`** | Lưu trữ dữ liệu thời tiết tức thời (Latest) |
+| `weather_influxdb` | `8086` | **`8089`** | Lưu trữ dữ liệu lịch sử (Time-series) |
+| `weather_grafana` | `3000` | **`3002`** | Trực quan hóa biểu đồ lịch sử (Nhúng Iframe) |
+
+> **Lưu ý mạng nội bộ:** Các service giao tiếp với nhau bằng tên service bên trong mạng chung `weather_network` (Ví dụ: Flask kết nối tới DB qua host là `weather_mariadb` chứ không dùng IP).
+
+---
+
+### 2. Cấu hình 
+#### 2.1. Cáu hình file `docker-compose.yml`
+
